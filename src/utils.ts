@@ -6,10 +6,6 @@ import { Collection, MongoClient } from 'mongodb';
 import path from 'path';
 import { FoodData, PAYSTACK_BASE, PAYSTACK_SECRET } from './data';
 
-const uri = process.env.DATABASE_URL as string;
-let client: MongoClient;
-let users: Collection<User>;
-
 export interface User {
   _id?: string;
   first_name: string;
@@ -18,6 +14,10 @@ export interface User {
   password: string;
   phone: string;
 }
+
+const uri = process.env.DATABASE_URL as string;
+let client: MongoClient;
+let users: Collection<User>;
 
 const connectToDatabase = async () => {
   if (!client) {
@@ -60,11 +60,12 @@ export const getUser = async (search: string, type: 'email' | 'phone' = 'email')
   }
 }
 
-export const addUser = async (user: Omit<User, 'id'>): Promise<User | null> => {
+export const addUser = async (user: Omit<User, 'id'>): Promise<Partial<User> | null> => {
   try {
     const { users } = await connectToDatabase();
     const result = await users.insertOne(user);
-    return { ...user, _id: result.insertedId }
+    const { password, ...rest } = user;
+    return { ...rest, _id: result.insertedId }
   } catch (error: any) {
     return null
   }
@@ -74,6 +75,7 @@ export const editUser = async (email: string, user: Partial<User>): Promise<Part
   try {
     const { users } = await connectToDatabase();
     const result = await users.updateOne({ email }, { $set: user });
+    delete user.password;
     return result.modifiedCount ? user : null
   } catch (error: any) {
     return null

@@ -36,8 +36,7 @@ app.post('/signup', async (req, res) => {
     if (user) {
       res.status(405).json({ status: false, message: 'Email adddress is already taken', data: null })
     } else {
-      await addUser({ email, first_name, last_name, password, phone })
-      res.status(201).json({ status: true, message: 'ok', data: { email, first_name, last_name, phone } })
+      res.status(201).json({ status: true, message: 'ok', data: await addUser({ email, first_name, last_name, password, phone }) })
     }
   }
 });
