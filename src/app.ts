@@ -11,20 +11,16 @@ app.use(bodyParser.json());
 
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
-app.get('/food', async (_, res) => {
+app.get('/food', authMiddleware, async (_, res) => {
   res.json({ status: true, message: 'ok', data: await getAllFood() })
 });
 
 app.get('/profile', authMiddleware, async (req: any, res) => {
-  const user = await getUser(req.user?.email);
-  delete user?.password;
-  res.json({ status: true, message: 'ok', data: user })
+  res.json({ status: true, message: 'ok', data: await getUser(req.user?.email) })
 });
 
 app.post('/profile', authMiddleware, async (req: any, res) => {
-  const user = await editUser(req.user?.email, req.body);
-  delete user?.password;
-  res.json({ status: true, message: 'ok', data: user })
+  res.json({ status: true, message: 'ok', data: await editUser(req.user?.email, req.body) })
 });
 
 app.post('/signup', async (req, res) => {
