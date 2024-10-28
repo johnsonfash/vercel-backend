@@ -2,29 +2,35 @@ import axios from 'axios';
 import { NextFunction } from 'express';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
+import { Collection, MongoClient } from 'mongodb';
 import path from 'path';
 import { FoodData, PAYSTACK_BASE, PAYSTACK_SECRET } from './data';
 
+const uri = process.env.DATABASE_URL as string;
+let client: MongoClient;
+let users: Collection<User>;
+
 export interface User {
-  id?: number
-  email: string
-  password?: string
-  first_name: string
-  last_name: string
-  phone: string
+  _id?: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  phone: string;
 }
 
-export interface FoodData {
-  id: string;
-  title: string;
-  image: string;
-  prevPrice: number;
-  currPrice: number;
-  starRating: number;
-  duration: string;
+const connectToDatabase = async () => {
+  if (!client) {
+    try {
+      client = new MongoClient(uri);
+      await client.connect();
+      users = client.db('bigbite').collection('users');
+    } catch (error: any) { }
+  }
+  return { client, users };
 }
 
-const userJson = path.join(__dirname, 'users.json');
+
 export const createToken = (email: string) => jwt.sign({ email }, PAYSTACK_SECRET, { expiresIn: '3d' });
 export const verifyToken = (token: string) => jwt.verify(token, PAYSTACK_SECRET);
 
@@ -45,39 +51,33 @@ export const authMiddleware = (req: any, res: any, next: NextFunction) => {
   });
 };
 
-export const getUser = (email: string, type: 'email' | 'phone' = 'email'): Promise<User | null> => {
-  return new Promise((resolve) => {
-    fs.readFile(userJson, 'utf-8', (_, data) => {
-      const users = JSON.parse(data) as User[];
-      resolve(email ? users.find(u => u[type]?.toLowerCase()?.trim() == email.toLowerCase()?.trim()) ?? null : null);
-    })
-  })
+export const getUser = async (search: string, type: 'email' | 'phone' = 'email'): Promise<Partial<User> | null> => {
+  try {
+    const { users } = await connectToDatabase();
+    return users.findOne({ [type]: search })
+  } catch (error: any) {
+    return null
+  }
 }
 
-export const addUser = (user: User) => {
-  return new Promise((resolve) => {
-    fs.readFile(userJson, 'utf-8', (_, data) => {
-      const users = JSON.parse(data)
-      users.push({ ...user, id: users.length + 1 });
-      fs.writeFile(userJson, JSON.stringify(users, null, 2), 'utf-8', () => {
-        resolve(user);
-      })
-    })
-  })
+export const addUser = async (user: Omit<User, 'id'>): Promise<User | null> => {
+  try {
+    const { users } = await connectToDatabase();
+    const result = await users.insertOne(user);
+    return { ...user, _id: result.insertedId }
+  } catch (error: any) {
+    return null
+  }
 }
 
-export const editUser = (email: string, user: Partial<User>): Promise<Partial<User>> => {
-  return new Promise((resolve) => {
-    fs.readFile(userJson, 'utf-8', (_, data) => {
-      const users = JSON.parse(data) as User[];
-      const index = users.findIndex(u => u.email == email);
-      delete user.email
-      users[index] = { ...users[index], ...user };
-      fs.writeFile(userJson, JSON.stringify(users, null, 2), 'utf-8', () => {
-        resolve(user);
-      })
-    })
-  })
+export const editUser = async (email: string, user: Partial<User>): Promise<Partial<User> | null> => {
+  try {
+    const { users } = await connectToDatabase();
+    const result = await users.updateOne({ email }, { $set: user });
+    return result.modifiedCount ? user : null
+  } catch (error: any) {
+    return null
+  }
 }
 
 export const createCharge = async (email: string, amount: string | number) => {
@@ -100,7 +100,8 @@ export const createCharge = async (email: string, amount: string | number) => {
 }
 
 export const getAllFood = () => new Promise((resolve) => {
-  const Food: FoodData[] = [];
+  type Food = typeof FoodData[number] & { image: string }
+  const Food: Food[] = [];
   fs.readdir(path.join(__dirname, 'images'), (err, files) => {
     if (err) {
       resolve([]);

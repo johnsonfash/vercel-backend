@@ -1,31 +1,33 @@
-import { PrismaClient, User } from '@prisma/client';
 import axios from 'axios';
 import { NextFunction } from 'express';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
+import { Collection, MongoClient } from 'mongodb';
 import path from 'path';
 import { FoodData, PAYSTACK_BASE, PAYSTACK_SECRET } from './data';
 
-let prisma;
+const uri = process.env.DATABASE_URL as string;
+let client: MongoClient;
+let users: Collection<User>;
 
-if (process.env.NODE_ENV === 'development') {
-  prisma = new PrismaClient();
-} else {
-  if (!(global as any).prisma) {
-    (global as any).prisma = new PrismaClient();
+export interface User {
+  _id?: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  phone: string;
+}
+
+const connectToDatabase = async () => {
+  if (!client) {
+    client = new MongoClient(uri);
+    await client.connect();
+    users = client.db('bigbite').collection('users');
   }
-  prisma = (global as any).prisma as PrismaClient;
+  return { client, users };
 }
 
-export interface FoodData {
-  id: string;
-  title: string;
-  image: string;
-  prevPrice: number;
-  currPrice: number;
-  starRating: number;
-  duration: string;
-}
 
 export const createToken = (email: string) => jwt.sign({ email }, PAYSTACK_SECRET, { expiresIn: '3d' });
 export const verifyToken = (token: string) => jwt.verify(token, PAYSTACK_SECRET);
@@ -49,9 +51,8 @@ export const authMiddleware = (req: any, res: any, next: NextFunction) => {
 
 export const getUser = async (search: string, type: 'email' | 'phone' = 'email'): Promise<Partial<User> | null> => {
   try {
-    return await prisma.user.findFirst({
-      where: { [type]: search }
-    });
+    const { users } = await connectToDatabase();
+    return await users.findOne({ [type]: search })
   } catch (error: any) {
     return null
   }
@@ -59,7 +60,9 @@ export const getUser = async (search: string, type: 'email' | 'phone' = 'email')
 
 export const addUser = async (user: Omit<User, 'id'>): Promise<User | null> => {
   try {
-    return await prisma.user.create({ data: user });
+    const { users } = await connectToDatabase();
+    const result = await users.insertOne(user);
+    return { ...user, _id: result.insertedId }
   } catch (error: any) {
     return null
   }
@@ -67,7 +70,9 @@ export const addUser = async (user: Omit<User, 'id'>): Promise<User | null> => {
 
 export const editUser = async (email: string, user: Partial<User>): Promise<Partial<User> | null> => {
   try {
-    return await prisma.user.update({ where: { email }, data: user })
+    const { users } = await connectToDatabase();
+    const result = await users.updateOne({ email }, { $set: user });
+    return result.modifiedCount ? user : null
   } catch (error: any) {
     return null
   }
@@ -93,7 +98,8 @@ export const createCharge = async (email: string, amount: string | number) => {
 }
 
 export const getAllFood = () => new Promise((resolve) => {
-  const Food: FoodData[] = [];
+  type Food = typeof FoodData[number] & { image: string }
+  const Food: Food[] = [];
   fs.readdir(path.join(__dirname, 'images'), (err, files) => {
     if (err) {
       resolve([]);
