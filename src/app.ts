@@ -27,7 +27,6 @@ app.post('/profile', authMiddleware, async (req: any, res) => {
   res.json({ status: true, message: 'ok', data: user })
 });
 
-
 app.post('/signup', async (req, res) => {
   const { email, first_name, last_name, password, phone } = req.body;
   if (!email || !first_name || !last_name || !password) {
