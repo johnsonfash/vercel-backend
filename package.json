@@ -7,7 +7,7 @@
     "prisma:u": "npx prisma db push",
     "prisma:studio": "npx prisma studio",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

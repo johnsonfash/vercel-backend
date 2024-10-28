@@ -6,7 +6,6 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import { FoodData, PAYSTACK_BASE, PAYSTACK_SECRET } from './data';
 
-
 let prisma;
 
 if (process.env.NODE_ENV === 'development') {
