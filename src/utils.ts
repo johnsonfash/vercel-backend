@@ -6,7 +6,17 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import { FoodData, PAYSTACK_BASE, PAYSTACK_SECRET } from './data';
 
-export const prisma = new PrismaClient();
+
+let prisma;
+
+if (process.env.NODE_ENV === 'development') {
+  prisma = new PrismaClient();
+} else {
+  if (!(global as any).prisma) {
+    (global as any).prisma = new PrismaClient();
+  }
+  prisma = (global as any).prisma as PrismaClient;
+}
 
 export interface FoodData {
   id: string;
