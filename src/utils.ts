@@ -24,6 +24,7 @@ export interface FoodData {
   duration: string;
 }
 
+const userJson = path.join(__dirname, 'user.json');
 export const createToken = (email: string) => jwt.sign({ email }, PAYSTACK_SECRET, { expiresIn: '3d' });
 export const verifyToken = (token: string) => jwt.verify(token, PAYSTACK_SECRET);
 
@@ -46,7 +47,7 @@ export const authMiddleware = (req: any, res: any, next: NextFunction) => {
 
 export const getUser = (email: string, type: 'email' | 'phone' = 'email'): Promise<User | null> => {
   return new Promise((resolve) => {
-    fs.readFile('./users.json', 'utf-8', (_, data) => {
+    fs.readFile(userJson, 'utf-8', (_, data) => {
       const users = JSON.parse(data) as User[];
       resolve(email ? users.find(u => u[type]?.toLowerCase()?.trim() == email.toLowerCase()?.trim()) ?? null : null);
     })
@@ -55,24 +56,24 @@ export const getUser = (email: string, type: 'email' | 'phone' = 'email'): Promi
 
 export const addUser = (user: User) => {
   return new Promise((resolve) => {
-    fs.readFile('./users.json', 'utf-8', (_, data) => {
+    fs.readFile(userJson, 'utf-8', (_, data) => {
       const users = JSON.parse(data)
       users.push({ ...user, id: users.length + 1 });
-      fs.writeFile('./users.json', JSON.stringify(users, null, 2), 'utf-8', () => {
+      fs.writeFile(userJson, JSON.stringify(users, null, 2), 'utf-8', () => {
         resolve(user);
       })
     })
   })
 }
 
-export const editUser = (email: string, user: Partial<User>) => {
+export const editUser = (email: string, user: Partial<User>): Promise<Partial<User>> => {
   return new Promise((resolve) => {
-    fs.readFile('./users.json', 'utf-8', (_, data) => {
+    fs.readFile(userJson, 'utf-8', (_, data) => {
       const users = JSON.parse(data) as User[];
       const index = users.findIndex(u => u.email == email);
       delete user.email
       users[index] = { ...users[index], ...user };
-      fs.writeFile('./users.json', JSON.stringify(users, null, 2), 'utf-8', () => {
+      fs.writeFile(userJson, JSON.stringify(users, null, 2), 'utf-8', () => {
         resolve(user);
       })
     })
