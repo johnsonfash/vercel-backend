@@ -71,7 +71,7 @@ app.post('/charge', authMiddleware, async (req: any, res) => {
 });
 
 app.get('/', (_, res) => {
-  res.json({ message: 'Hello from Express with TypeScript on Vercel!', __filename, __dirname });
+  res.json({ message: 'Hello from Express with TypeScript on Vercel!' });
 });
 
 export default app;
